@@ -4,6 +4,7 @@ import json
 import zipfile
 from pathlib import Path
 import shutil
+import logging
 
 import pygame
 import requests
@@ -11,11 +12,15 @@ import requests
 CONFIG_FILE = Path("client_config.json")
 SERVER_URL = "http://localhost:7000"
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("client")
+
 
 def ensure_config() -> dict:
     if CONFIG_FILE.exists():
         config = json.loads(CONFIG_FILE.read_text())
         created = False
+        logger.info("Loaded config from %s", CONFIG_FILE)
     else:
         # Default skeleton with placeholder save paths; edit the paths manually.
         config = {
@@ -27,10 +32,12 @@ def ensure_config() -> dict:
             },
         }
         created = True
+        logger.info("Creating new config skeleton at %s", CONFIG_FILE)
 
     changed = False
     if not config.get("nickname") or not config.get("api_key"):
         nickname = gamepad_prompt_text("Enter your nickname")
+        logger.info("Registering nickname %s", nickname)
         resp = requests.post(f"{SERVER_URL}/register", json={"nickname": nickname})
         resp.raise_for_status()
         config.update({"nickname": nickname, "api_key": resp.json()["api_key"]})
@@ -38,8 +45,10 @@ def ensure_config() -> dict:
     else:
         # Validate stored API key; if invalid, re-register.
         headers = {"X-API-Key": config["api_key"]}
+        logger.info("Validating stored API key")
         resp = requests.get(f"{SERVER_URL}/validate", headers=headers)
         if resp.status_code == 401:
+            logger.info("API key invalid; re-registering")
             nickname = config.get("nickname") or gamepad_prompt_text("Enter your nickname")
             while True:
                 resp = requests.post(f"{SERVER_URL}/register", json={"nickname": nickname})
@@ -53,6 +62,7 @@ def ensure_config() -> dict:
 
     if created or changed:
         CONFIG_FILE.write_text(json.dumps(config, indent=2))
+        logger.info("Wrote config to %s", CONFIG_FILE)
     return config
 
 
@@ -62,6 +72,7 @@ def zip_directory(path: Path) -> bytes:
         for p in path.rglob("*"):
             if p.is_file():
                 zf.write(p, p.relative_to(path))
+    logger.info("Zipped directory %s", path)
     return buf.getvalue()
 
 
@@ -71,15 +82,20 @@ def unzip_to_directory(data: bytes, path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         zf.extractall(path)
+    logger.info("Unzipped data to %s", path)
 
 
 def get_local_mtime(path: Path) -> float:
     if not path.exists():
+        logger.info("Save path %s does not exist", path)
         return 0.0
-    mtimes = [p.stat().st_mtime for p in path.rglob("*") if p.is_file()]
-    if mtimes:
-        return max(mtimes)
-    return path.stat().st_mtime
+    files = [p for p in path.rglob("*") if p.is_file()]
+    if not files:
+        logger.info("No local save files in %s", path)
+        return 0.0
+    mtime = max(p.stat().st_mtime for p in files)
+    logger.info("Local save mtime for %s: %s", path, mtime)
+    return mtime
 
 
 def get_server_mtime(config: dict, emulator: str) -> float:
@@ -87,8 +103,11 @@ def get_server_mtime(config: dict, emulator: str) -> float:
     url = f"{SERVER_URL}/saves/{emulator}/info"
     resp = requests.get(url, headers=headers)
     if resp.status_code != 200:
+        logger.info("No server metadata for %s", emulator)
         return 0.0
-    return resp.json().get("modified", 0.0)
+    mtime = resp.json().get("modified", 0.0)
+    logger.info("Server mtime for %s: %s", emulator, mtime)
+    return mtime
 
 
 def gamepad_prompt_text(prompt: str) -> str:
@@ -219,12 +238,14 @@ def gamepad_yes_no(prompt: str) -> bool:
 
 def upload(config: dict, emulator: str) -> None:
     path = Path(config["save_paths"][emulator])
+    logger.info("Uploading saves for %s from %s", emulator, path)
     data = zip_directory(path)
     files = {"file": (f"{emulator}.zip", data)}
     headers = {"X-API-Key": config["api_key"]}
     url = f"{SERVER_URL}/saves/{emulator}"
     resp = requests.post(url, files=files, headers=headers)
     resp.raise_for_status()
+    logger.info("Upload completed for %s", emulator)
 
 
 def download(config: dict, emulator: str) -> None:
@@ -232,17 +253,20 @@ def download(config: dict, emulator: str) -> None:
     server_mtime = get_server_mtime(config, emulator)
     path = Path(config["save_paths"][emulator])
     local_mtime = get_local_mtime(path)
+    logger.info("Local mtime %s, server mtime %s", local_mtime, server_mtime)
     if server_mtime and local_mtime > server_mtime:
+        logger.info("Local saves newer than server for %s", emulator)
         if gamepad_yes_no("Local saves are newer than server. Upload them?"):
             upload(config, emulator)
             return
     url = f"{SERVER_URL}/saves/{emulator}"
     resp = requests.get(url, headers=headers)
     if resp.status_code == 404:
-        print("No save on server")
+        logger.info("No save on server for %s", emulator)
         return
     resp.raise_for_status()
     unzip_to_directory(resp.content, path)
+    logger.info("Downloaded saves for %s to %s", emulator, path)
 
 
 def main() -> None:
@@ -252,6 +276,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = ensure_config()
+    logger.info("Performing %s for %s", args.action, args.emulator)
     if args.action == "upload":
         upload(config, args.emulator)
     else:
