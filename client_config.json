@@ -1,0 +1,8 @@
+{
+  "nickname": "",
+  "api_key": "",
+  "save_paths": {
+    "mesen": "/path/to/mesen/saves",
+    "duckstation": "/path/to/duckstation/saves"
+  }
+}
