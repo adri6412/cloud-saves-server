@@ -16,9 +16,12 @@ def ensure_config() -> dict:
 
     nickname = input("Enter your nickname: ").strip()
     server_url = input("Server URL [http://localhost:8000]: ").strip() or "http://localhost:8000"
-    save_paths = {}
-    save_paths["mesen"] = input("Path to Mesen saves: ").strip()
-    save_paths["duckstation"] = input("Path to DuckStation saves: ").strip()
+    # Placeholder paths for emulator saves; edit the generated config file to point
+    # to the real directories before using the client.
+    save_paths = {
+        "mesen": "/path/to/mesen/saves",
+        "duckstation": "/path/to/duckstation/saves",
+    }
 
     resp = requests.post(f"{server_url}/register", json={"nickname": nickname})
     resp.raise_for_status()

@@ -21,13 +21,13 @@ Available endpoints:
 
 ## Client
 
-The client synchronizes local save folders with the server.  On first run it prompts for:
+The client synchronizes local save folders with the server. On first run it prompts
+for a **nickname** and **server URL**. Placeholder save paths for Mesen and
+DuckStation are written to the generated `client_config.json`; edit this file to
+point to your actual save folders.
 
-- Nickname
-- Server URL
-- Local save paths for Mesen and DuckStation
-
-This information plus the API key returned by the server are stored in `client_config.json`.
+This information plus the API key returned by the server are stored in
+`client_config.json`.
 
 ### Usage
 
