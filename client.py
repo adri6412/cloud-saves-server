@@ -94,9 +94,9 @@ def get_server_mtime(config: dict, emulator: str) -> float:
 def gamepad_prompt_text(prompt: str) -> str:
     pygame.init()
     pygame.joystick.init()
-    if pygame.joystick.get_count() == 0:
-        raise RuntimeError("No joystick connected")
-    pygame.joystick.Joystick(0).init()
+    use_joystick = pygame.joystick.get_count() > 0
+    if use_joystick:
+        pygame.joystick.Joystick(0).init()
     font = pygame.font.Font(None, 36)
     letters = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") + ["<", "OK"]
     cols = 8
@@ -107,7 +107,7 @@ def gamepad_prompt_text(prompt: str) -> str:
     clock = pygame.time.Clock()
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.JOYHATMOTION:
+            if use_joystick and event.type == pygame.JOYHATMOTION:
                 x, y = event.value
                 if x == 1:
                     index = (index + 1) % len(letters)
@@ -117,7 +117,7 @@ def gamepad_prompt_text(prompt: str) -> str:
                     index = (index - cols) % len(letters)
                 elif y == -1:
                     index = (index + cols) % len(letters)
-            elif event.type == pygame.JOYBUTTONDOWN:
+            elif use_joystick and event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 0:  # A button
                     ch = letters[index]
                     if ch == "OK" and text:
@@ -126,6 +126,30 @@ def gamepad_prompt_text(prompt: str) -> str:
                     if ch == "<":
                         text = text[:-1]
                     else:
+                        text += ch
+            elif not use_joystick and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    index = (index + 1) % len(letters)
+                elif event.key == pygame.K_LEFT:
+                    index = (index - 1) % len(letters)
+                elif event.key == pygame.K_DOWN:
+                    index = (index + cols) % len(letters)
+                elif event.key == pygame.K_UP:
+                    index = (index - cols) % len(letters)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    ch = letters[index]
+                    if ch == "OK" and text:
+                        pygame.quit()
+                        return text
+                    if ch == "<":
+                        text = text[:-1]
+                    else:
+                        text += ch
+                elif event.key == pygame.K_BACKSPACE:
+                    text = text[:-1]
+                else:
+                    ch = event.unicode.upper()
+                    if ch in letters[:-2]:
                         text += ch
         screen.fill((0, 0, 0))
         prompt_surf = font.render(prompt, True, (255, 255, 255))
@@ -145,9 +169,9 @@ def gamepad_prompt_text(prompt: str) -> str:
 def gamepad_yes_no(prompt: str) -> bool:
     pygame.init()
     pygame.joystick.init()
-    if pygame.joystick.get_count() == 0:
-        raise RuntimeError("No joystick connected")
-    pygame.joystick.Joystick(0).init()
+    use_joystick = pygame.joystick.get_count() > 0
+    if use_joystick:
+        pygame.joystick.Joystick(0).init()
     font = pygame.font.Font(None, 36)
     options = ["Yes", "No"]
     index = 0
@@ -156,14 +180,22 @@ def gamepad_yes_no(prompt: str) -> bool:
     clock = pygame.time.Clock()
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.JOYHATMOTION:
+            if use_joystick and event.type == pygame.JOYHATMOTION:
                 x, _ = event.value
                 if x == 1:
                     index = (index + 1) % len(options)
                 elif x == -1:
                     index = (index - 1) % len(options)
-            elif event.type == pygame.JOYBUTTONDOWN:
+            elif use_joystick and event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 0:
+                    pygame.quit()
+                    return index == 0
+            elif not use_joystick and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    index = (index + 1) % len(options)
+                elif event.key == pygame.K_LEFT:
+                    index = (index - 1) % len(options)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     pygame.quit()
                     return index == 0
         screen.fill((0, 0, 0))
