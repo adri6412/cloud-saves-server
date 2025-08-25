@@ -13,28 +13,40 @@ CONFIG_FILE = Path("client_config.json")
 
 def ensure_config() -> dict:
     if CONFIG_FILE.exists():
-        return json.loads(CONFIG_FILE.read_text())
+        config = json.loads(CONFIG_FILE.read_text())
+        created = False
+    else:
+        # Default skeleton with placeholder save paths; edit the paths manually.
+        config = {
+            "nickname": "",
+            "api_key": "",
+            "server_url": "http://localhost:8000",
+            "save_paths": {
+                "mesen": "/path/to/mesen/saves",
+                "duckstation": "/path/to/duckstation/saves",
+            },
+        }
+        created = True
 
-    nickname = input("Enter your nickname: ").strip()
-    server_url = input("Server URL [http://localhost:8000]: ").strip() or "http://localhost:8000"
-    # Placeholder paths for emulator saves; edit the generated config file to point
-    # to the real directories before using the client.
-    save_paths = {
-        "mesen": "/path/to/mesen/saves",
-        "duckstation": "/path/to/duckstation/saves",
-    }
+    changed = False
+    if not config.get("nickname") or not config.get("api_key"):
+        nickname = input("Enter your nickname: ").strip()
+        server_url = input("Server URL [http://localhost:8000]: ").strip() or config.get(
+            "server_url", "http://localhost:8000"
+        )
+        resp = requests.post(f"{server_url}/register", json={"nickname": nickname})
+        resp.raise_for_status()
+        config.update(
+            {
+                "nickname": nickname,
+                "server_url": server_url,
+                "api_key": resp.json()["api_key"],
+            }
+        )
+        changed = True
 
-    resp = requests.post(f"{server_url}/register", json={"nickname": nickname})
-    resp.raise_for_status()
-    api_key = resp.json()["api_key"]
-
-    config = {
-        "nickname": nickname,
-        "api_key": api_key,
-        "server_url": server_url,
-        "save_paths": save_paths,
-    }
-    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+    if created or changed:
+        CONFIG_FILE.write_text(json.dumps(config, indent=2))
     return config
 
 

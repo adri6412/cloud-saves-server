@@ -22,13 +22,11 @@ Available endpoints:
 
 ## Client
 
-The client synchronizes local save folders with the server. On first run it prompts
-for a **nickname** and **server URL**. Placeholder save paths for Mesen and
-DuckStation are written to the generated `client_config.json`; edit this file to
-point to your actual save folders.
-
-This information plus the API key returned by the server are stored in
-`client_config.json`.
+The client synchronizes local save folders with the server. An example
+`client_config.json` file is included with placeholder paths for Mesen and
+DuckStation saves—edit these paths to your real directories. On first run the
+client prompts for a **nickname** and **server URL**, registers with the server
+to obtain an API key, and writes these details back to `client_config.json`.
 
 ### Usage
 
