@@ -97,13 +97,14 @@ def gamepad_prompt_text(prompt: str) -> str:
     use_joystick = pygame.joystick.get_count() > 0
     if use_joystick:
         pygame.joystick.Joystick(0).init()
-    font = pygame.font.Font(None, 36)
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    width, height = screen.get_size()
+    pygame.display.set_caption("Cloud Saves")
+    font = pygame.font.Font(None, 72)
     letters = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") + ["<", "OK"]
     cols = 8
     index = 0
     text = ""
-    screen = pygame.display.set_mode((640, 240))
-    pygame.display.set_caption("Cloud Saves")
     clock = pygame.time.Clock()
     while True:
         for event in pygame.event.get():
@@ -127,7 +128,7 @@ def gamepad_prompt_text(prompt: str) -> str:
                         text = text[:-1]
                     else:
                         text += ch
-            elif not use_joystick and event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RIGHT:
                     index = (index + 1) % len(letters)
                 elif event.key == pygame.K_LEFT:
@@ -136,7 +137,11 @@ def gamepad_prompt_text(prompt: str) -> str:
                     index = (index + cols) % len(letters)
                 elif event.key == pygame.K_UP:
                     index = (index - cols) % len(letters)
-                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if text:
+                        pygame.quit()
+                        return text
+                elif event.key == pygame.K_SPACE:
                     ch = letters[index]
                     if ch == "OK" and text:
                         pygame.quit()
@@ -153,15 +158,17 @@ def gamepad_prompt_text(prompt: str) -> str:
                         text += ch
         screen.fill((0, 0, 0))
         prompt_surf = font.render(prompt, True, (255, 255, 255))
-        screen.blit(prompt_surf, (20, 20))
+        screen.blit(prompt_surf, (width // 2 - prompt_surf.get_width() // 2, height // 6))
         text_surf = font.render(text, True, (255, 255, 255))
-        screen.blit(text_surf, (20, 60))
+        screen.blit(text_surf, (width // 2 - text_surf.get_width() // 2, height // 3))
+        base_x = width // 2 - (cols * 70) // 2
+        base_y = height // 2
         for i, ch in enumerate(letters):
             col = i % cols
             row = i // cols
             color = (255, 255, 0) if i == index else (200, 200, 200)
             surf = font.render(ch, True, color)
-            screen.blit(surf, (20 + col * 70, 120 + row * 40))
+            screen.blit(surf, (base_x + col * 70, base_y + row * 40))
         pygame.display.flip()
         clock.tick(30)
 
@@ -172,11 +179,12 @@ def gamepad_yes_no(prompt: str) -> bool:
     use_joystick = pygame.joystick.get_count() > 0
     if use_joystick:
         pygame.joystick.Joystick(0).init()
-    font = pygame.font.Font(None, 36)
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    width, height = screen.get_size()
+    pygame.display.set_caption("Cloud Saves")
+    font = pygame.font.Font(None, 72)
     options = ["Yes", "No"]
     index = 0
-    screen = pygame.display.set_mode((400, 200))
-    pygame.display.set_caption("Cloud Saves")
     clock = pygame.time.Clock()
     while True:
         for event in pygame.event.get():
@@ -190,21 +198,21 @@ def gamepad_yes_no(prompt: str) -> bool:
                 if event.button == 0:
                     pygame.quit()
                     return index == 0
-            elif not use_joystick and event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RIGHT:
                     index = (index + 1) % len(options)
                 elif event.key == pygame.K_LEFT:
                     index = (index - 1) % len(options)
-                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                     pygame.quit()
                     return index == 0
         screen.fill((0, 0, 0))
         prompt_surf = font.render(prompt, True, (255, 255, 255))
-        screen.blit(prompt_surf, (20, 20))
+        screen.blit(prompt_surf, (width // 2 - prompt_surf.get_width() // 2, height // 3))
         for i, opt in enumerate(options):
             color = (255, 255, 0) if i == index else (200, 200, 200)
             surf = font.render(opt, True, color)
-            screen.blit(surf, (60 + i * 150, 100))
+            screen.blit(surf, (width // 2 - 100 + i * 200, height // 2))
         pygame.display.flip()
         clock.tick(30)
 
