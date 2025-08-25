@@ -1,14 +1,16 @@
 import json
+import logging
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-import uvicorn
 
 DATA_DIR = Path("server_data")
 USERS_FILE = DATA_DIR / "users.json"
 SAVES_DIR = DATA_DIR / "saves"
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Cloud Save Server")
 
@@ -51,7 +53,12 @@ async def register(payload: dict):
     api_key = uuid.uuid4().hex
     users = load_users()
     users.append({"nickname": nickname, "api_key": api_key})
-    save_users(users)
+    try:
+        save_users(users)
+    except Exception as exc:
+        logging.exception("failed to save users: %s", exc)
+        raise HTTPException(status_code=500, detail="could not save user") from exc
+    logging.info("registered nickname %s", nickname)
     return {"nickname": nickname, "api_key": api_key}
 
 
@@ -100,4 +107,6 @@ async def save_info(emulator: str, x_api_key: str = Header(...)):
 
 
 if __name__ == "__main__":
+    import uvicorn
+
     uvicorn.run("server:app", host="0.0.0.0", port=7000)
