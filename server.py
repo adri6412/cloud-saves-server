@@ -52,6 +52,14 @@ async def register(payload: dict):
     return {"nickname": nickname, "api_key": api_key}
 
 
+@app.get("/validate")
+async def validate(x_api_key: str = Header(...)):
+    user = find_user_by_key(x_api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid api key")
+    return {"status": "ok"}
+
+
 @app.post("/saves/{emulator}")
 async def upload_save(emulator: str, file: UploadFile = File(...), x_api_key: str = Header(...)):
     user = find_user_by_key(x_api_key)
@@ -89,4 +97,4 @@ async def save_info(emulator: str, x_api_key: str = Header(...)):
 
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8000)
+    uvicorn.run("server:app", host="0.0.0.0", port=7000)
