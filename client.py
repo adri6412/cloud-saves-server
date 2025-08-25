@@ -36,12 +36,18 @@ def ensure_config() -> dict:
 
     changed = False
     if not config.get("nickname") or not config.get("api_key"):
-        nickname = gamepad_prompt_text("Enter your nickname")
-        logger.info("Registering nickname %s", nickname)
-        resp = requests.post(f"{SERVER_URL}/register", json={"nickname": nickname})
-        resp.raise_for_status()
-        config.update({"nickname": nickname, "api_key": resp.json()["api_key"]})
-        changed = True
+        # No credentials saved yet: register and handle already-taken names.
+        nickname = config.get("nickname") or gamepad_prompt_text("Enter your nickname")
+        while True:
+            logger.info("Registering nickname %s", nickname)
+            resp = requests.post(f"{SERVER_URL}/register", json={"nickname": nickname})
+            if resp.status_code == 400:
+                nickname = gamepad_prompt_text("Nickname exists. Choose another")
+                continue
+            resp.raise_for_status()
+            config.update({"nickname": nickname, "api_key": resp.json()["api_key"]})
+            changed = True
+            break
     else:
         # Validate stored API key; if invalid, re-register.
         headers = {"X-API-Key": config["api_key"]}
