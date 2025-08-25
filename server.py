@@ -73,7 +73,19 @@ async def download_save(emulator: str, x_api_key: str = Header(...)):
     file_path = SAVES_DIR / user["nickname"] / f"{emulator}.zip"
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="save not found")
-    return FileResponse(file_path)
+    headers = {"Last-Modified": str(file_path.stat().st_mtime)}
+    return FileResponse(file_path, headers=headers)
+
+
+@app.get("/saves/{emulator}/info")
+async def save_info(emulator: str, x_api_key: str = Header(...)):
+    user = find_user_by_key(x_api_key)
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid api key")
+    file_path = SAVES_DIR / user["nickname"] / f"{emulator}.zip"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="save not found")
+    return {"modified": file_path.stat().st_mtime}
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ Available endpoints:
 - `POST /register` – Register a nickname and receive an API key.
 - `POST /saves/{emulator}` – Upload a zipped save file. Requires the `X-API-Key` header.
 - `GET /saves/{emulator}` – Download the zipped save file for an emulator. Requires the `X-API-Key` header.
+- `GET /saves/{emulator}/info` – Return the last modification timestamp for a save file.
 
 ## Client
 
@@ -41,4 +42,4 @@ python client.py upload mesen
 
 Replace `mesen` with `duckstation` for PlayStation saves.
 
-The client reads the paths from `client_config.json`, zips the save directory, and uploads it to the server or downloads and extracts it.
+The client reads the paths from `client_config.json`, zips the save directory, and uploads it to the server or downloads and extracts it. When downloading, if the local saves are newer than the remote ones the client shows a joystick-controlled prompt asking whether to upload the local files instead.
