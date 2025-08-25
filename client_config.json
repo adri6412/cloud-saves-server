@@ -1,7 +1,6 @@
 {
   "nickname": "",
   "api_key": "",
-  "server_url": "http://localhost:8000",
   "save_paths": {
     "mesen": "/path/to/mesen/saves",
     "duckstation": "/path/to/duckstation/saves"

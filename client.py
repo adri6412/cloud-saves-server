@@ -4,11 +4,12 @@ import json
 import zipfile
 from pathlib import Path
 import shutil
-import sys
 
+import pygame
 import requests
 
 CONFIG_FILE = Path("client_config.json")
+SERVER_URL = "http://localhost:7000"
 
 
 def ensure_config() -> dict:
@@ -20,7 +21,6 @@ def ensure_config() -> dict:
         config = {
             "nickname": "",
             "api_key": "",
-            "server_url": "http://localhost:8000",
             "save_paths": {
                 "mesen": "/path/to/mesen/saves",
                 "duckstation": "/path/to/duckstation/saves",
@@ -30,16 +30,12 @@ def ensure_config() -> dict:
 
     changed = False
     if not config.get("nickname") or not config.get("api_key"):
-        nickname = input("Enter your nickname: ").strip()
-        server_url = input("Server URL [http://localhost:8000]: ").strip() or config.get(
-            "server_url", "http://localhost:8000"
-        )
-        resp = requests.post(f"{server_url}/register", json={"nickname": nickname})
+        nickname = gamepad_prompt_text("Enter your nickname")
+        resp = requests.post(f"{SERVER_URL}/register", json={"nickname": nickname})
         resp.raise_for_status()
         config.update(
             {
                 "nickname": nickname,
-                "server_url": server_url,
                 "api_key": resp.json()["api_key"],
             }
         )
@@ -78,60 +74,97 @@ def get_local_mtime(path: Path) -> float:
 
 def get_server_mtime(config: dict, emulator: str) -> float:
     headers = {"X-API-Key": config["api_key"]}
-    url = f"{config['server_url']}/saves/{emulator}/info"
+    url = f"{SERVER_URL}/saves/{emulator}/info"
     resp = requests.get(url, headers=headers)
     if resp.status_code != 200:
         return 0.0
     return resp.json().get("modified", 0.0)
 
 
-def read_key() -> str:
-    try:
-        import msvcrt
-        ch = msvcrt.getch()
-        if ch in (b"\x00", b"\xe0"):
-            ch2 = msvcrt.getch()
-            mapping = {b"H": "UP", b"P": "DOWN", b"K": "LEFT", b"M": "RIGHT"}
-            return mapping.get(ch2, "")
-        if ch == b"\r":
-            return "ENTER"
-        return ch.decode()
-    except ImportError:
-        import termios
-        import tty
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            ch = sys.stdin.read(1)
-            if ch == "\n":
-                return "ENTER"
-            if ch == "\x1b":
-                seq = sys.stdin.read(2)
-                mapping = {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}
-                return mapping.get(seq[1], "")
-            return ch
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+def gamepad_prompt_text(prompt: str) -> str:
+    pygame.init()
+    pygame.joystick.init()
+    if pygame.joystick.get_count() == 0:
+        raise RuntimeError("No joystick connected")
+    pygame.joystick.Joystick(0).init()
+    font = pygame.font.Font(None, 36)
+    letters = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") + ["<", "OK"]
+    cols = 8
+    index = 0
+    text = ""
+    screen = pygame.display.set_mode((640, 240))
+    pygame.display.set_caption("Cloud Saves")
+    clock = pygame.time.Clock()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.JOYHATMOTION:
+                x, y = event.value
+                if x == 1:
+                    index = (index + 1) % len(letters)
+                elif x == -1:
+                    index = (index - 1) % len(letters)
+                elif y == 1:
+                    index = (index - cols) % len(letters)
+                elif y == -1:
+                    index = (index + cols) % len(letters)
+            elif event.type == pygame.JOYBUTTONDOWN:
+                if event.button == 0:  # A button
+                    ch = letters[index]
+                    if ch == "OK" and text:
+                        pygame.quit()
+                        return text
+                    if ch == "<":
+                        text = text[:-1]
+                    else:
+                        text += ch
+        screen.fill((0, 0, 0))
+        prompt_surf = font.render(prompt, True, (255, 255, 255))
+        screen.blit(prompt_surf, (20, 20))
+        text_surf = font.render(text, True, (255, 255, 255))
+        screen.blit(text_surf, (20, 60))
+        for i, ch in enumerate(letters):
+            col = i % cols
+            row = i // cols
+            color = (255, 255, 0) if i == index else (200, 200, 200)
+            surf = font.render(ch, True, color)
+            screen.blit(surf, (20 + col * 70, 120 + row * 40))
+        pygame.display.flip()
+        clock.tick(30)
 
 
-def joystick_yes_no(prompt: str) -> bool:
+def gamepad_yes_no(prompt: str) -> bool:
+    pygame.init()
+    pygame.joystick.init()
+    if pygame.joystick.get_count() == 0:
+        raise RuntimeError("No joystick connected")
+    pygame.joystick.Joystick(0).init()
+    font = pygame.font.Font(None, 36)
     options = ["Yes", "No"]
     index = 0
-    print(prompt)
+    screen = pygame.display.set_mode((400, 200))
+    pygame.display.set_caption("Cloud Saves")
+    clock = pygame.time.Clock()
     while True:
+        for event in pygame.event.get():
+            if event.type == pygame.JOYHATMOTION:
+                x, _ = event.value
+                if x == 1:
+                    index = (index + 1) % len(options)
+                elif x == -1:
+                    index = (index - 1) % len(options)
+            elif event.type == pygame.JOYBUTTONDOWN:
+                if event.button == 0:
+                    pygame.quit()
+                    return index == 0
+        screen.fill((0, 0, 0))
+        prompt_surf = font.render(prompt, True, (255, 255, 255))
+        screen.blit(prompt_surf, (20, 20))
         for i, opt in enumerate(options):
-            prefix = ">" if i == index else " "
-            print(f"{prefix} {opt}")
-        key = read_key()
-        print("\033[F" * len(options), end="")
-        if key in ("LEFT", "UP"):
-            index = (index - 1) % len(options)
-        elif key in ("RIGHT", "DOWN"):
-            index = (index + 1) % len(options)
-        elif key == "ENTER":
-            print("\n", end="")
-            return index == 0
+            color = (255, 255, 0) if i == index else (200, 200, 200)
+            surf = font.render(opt, True, color)
+            screen.blit(surf, (60 + i * 150, 100))
+        pygame.display.flip()
+        clock.tick(30)
 
 
 def upload(config: dict, emulator: str) -> None:
@@ -139,7 +172,7 @@ def upload(config: dict, emulator: str) -> None:
     data = zip_directory(path)
     files = {"file": (f"{emulator}.zip", data)}
     headers = {"X-API-Key": config["api_key"]}
-    url = f"{config['server_url']}/saves/{emulator}"
+    url = f"{SERVER_URL}/saves/{emulator}"
     resp = requests.post(url, files=files, headers=headers)
     resp.raise_for_status()
 
@@ -150,10 +183,10 @@ def download(config: dict, emulator: str) -> None:
     path = Path(config["save_paths"][emulator])
     local_mtime = get_local_mtime(path)
     if server_mtime and local_mtime > server_mtime:
-        if joystick_yes_no("Local saves are newer than server. Upload them?"):
+        if gamepad_yes_no("Local saves are newer than server. Upload them?"):
             upload(config, emulator)
             return
-    url = f"{config['server_url']}/saves/{emulator}"
+    url = f"{SERVER_URL}/saves/{emulator}"
     resp = requests.get(url, headers=headers)
     if resp.status_code == 404:
         print("No save on server")

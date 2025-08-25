@@ -24,9 +24,11 @@ Available endpoints:
 
 The client synchronizes local save folders with the server. An example
 `client_config.json` file is included with placeholder paths for Mesen and
-DuckStation saves—edit these paths to your real directories. On first run the
-client prompts for a **nickname** and **server URL**, registers with the server
-to obtain an API key, and writes these details back to `client_config.json`.
+DuckStation saves—edit these paths to your real directories. On first run a
+GUI controlled by an Xbox gamepad asks for a **nickname**, registers with the
+server to obtain an API key, and writes these details back to
+`client_config.json`. The server URL is fixed inside `client.py`; edit the
+`SERVER_URL` constant in the code if you need to change it.
 
 ### Usage
 
@@ -40,4 +42,7 @@ python client.py upload mesen
 
 Replace `mesen` with `duckstation` for PlayStation saves.
 
-The client reads the paths from `client_config.json`, zips the save directory, and uploads it to the server or downloads and extracts it. When downloading, if the local saves are newer than the remote ones the client shows a joystick-controlled prompt asking whether to upload the local files instead.
+The client reads the paths from `client_config.json`, zips the save directory,
+and uploads it to the server or downloads and extracts it. When downloading,
+if the local saves are newer than the remote ones the client displays a
+gamepad-driven GUI asking whether to upload the local files instead.
