@@ -15,7 +15,10 @@ app = FastAPI(title="Cloud Save Server")
 
 def load_users() -> list:
     if USERS_FILE.exists():
-        return json.loads(USERS_FILE.read_text())
+        try:
+            return json.loads(USERS_FILE.read_text())
+        except json.JSONDecodeError:
+            return []
     return []
 
 
